@@ -15,3 +15,11 @@ describe("App routing", () => {
     expect(matches.at(-1)?.routeId).not.toBe(rootRouteId);
   });
 });
+
+describe("Proteção do painel", () => {
+  it("/painel fica dentro da área protegida que exige login", () => {
+    const router = createRouter({ routeTree, context: { queryClient: new QueryClient() } });
+    const ids = router.matchRoutes("/painel").map((m) => m.routeId);
+    expect(ids).toContain("/_authenticated");
+  });
+});
