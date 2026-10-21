@@ -1,11 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { signInWithPassword } from "@/lib/mock-auth";
 import { AuthShell } from "@/components/AuthShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { traduzir } from "./cadastro";
 
 export const Route = createFileRoute("/entrar")({
   head: () => ({
@@ -32,9 +31,9 @@ function Entrar() {
     e.preventDefault();
     setErro(null);
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
+    const { error } = await signInWithPassword(email, senha);
     setLoading(false);
-    if (error) return setErro(traduzir(error.message));
+    if (error) return setErro(error);
     navigate({ to: "/painel", replace: true });
   }
 

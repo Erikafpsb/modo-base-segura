@@ -1,11 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { resetPasswordForEmail } from "@/lib/mock-auth";
 import { AuthShell } from "@/components/AuthShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { traduzir } from "./cadastro";
 
 export const Route = createFileRoute("/recuperar-senha")({
   head: () => ({
@@ -24,18 +23,13 @@ export const Route = createFileRoute("/recuperar-senha")({
 function Recuperar() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
-  const [erro, setErro] = useState<string | null>(null);
   const [enviado, setEnviado] = useState(false);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    setErro(null);
     setLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/redefinir-senha`,
-    });
+    await resetPasswordForEmail(email);
     setLoading(false);
-    if (error) return setErro(traduzir(error.message));
     setEnviado(true);
   }
 
@@ -55,7 +49,6 @@ function Recuperar() {
             <Label htmlFor="email">E-mail</Label>
             <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
-          {erro && <p className="text-sm text-destructive">{erro}</p>}
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "Enviando..." : "Enviar link"}
           </Button>

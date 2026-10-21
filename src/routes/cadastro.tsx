@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { signUp } from "@/lib/mock-auth";
 import { AuthShell } from "@/components/AuthShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,13 +33,8 @@ function Cadastro() {
     setErro(null);
     if (senha.length < 6) return setErro("A senha precisa ter pelo menos 6 caracteres.");
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
-      email,
-      password: senha,
-      options: { data: { nome: nome.trim() }, emailRedirectTo: `${window.location.origin}/painel` },
-    });
+    await signUp(nome.trim(), email, senha);
     setLoading(false);
-    if (error) return setErro(traduzir(error.message));
     setEnviado(true);
   }
 
@@ -82,12 +77,7 @@ function Cadastro() {
   );
 }
 
+/** @deprecated Mantido apenas para compatibilidade de importação em outros arquivos. Pode remover quando refatorar. */
 export function traduzir(msg: string) {
-  const m = msg.toLowerCase();
-  if (m.includes("invalid login")) return "E-mail ou senha incorretos.";
-  if (m.includes("already registered")) return "Este e-mail já está cadastrado.";
-  if (m.includes("email not confirmed")) return "Confirme seu e-mail antes de entrar.";
-  if (m.includes("weak") || m.includes("pwned")) return "Escolha uma senha mais forte.";
-  if (m.includes("rate limit")) return "Muitas tentativas. Aguarde um pouco e tente novamente.";
-  return "Algo deu errado. Tente novamente.";
+  return msg;
 }
