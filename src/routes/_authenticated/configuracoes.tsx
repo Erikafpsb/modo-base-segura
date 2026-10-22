@@ -18,7 +18,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { TEMAS, type ThemeId, getStoredTheme, applyTheme } from "@/lib/theme";
-import { PLANO_USUARIO, MODOS, TAREFAS, HABITOS, METAS } from "@/lib/mock-data";
+import { atualizarPerfil } from "@/lib/supabase-auth";
+import { useModos, useTarefas, useHabitos, useMetas } from "@/hooks/use-supabase-data";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
   head: () => ({
@@ -37,9 +38,15 @@ function Configuracoes() {
   const [abaAtiva, setAbaAtiva] = useState<Aba>("aparencia");
   const [temaAtual, setTemaAtual] = useState<ThemeId>("auto");
 
+  const planoUsuario = user.plano || "gratis";
+  const { data: modos = [] } = useModos();
+  const { data: tarefas = [] } = useTarefas();
+  const { data: habitos = [] } = useHabitos();
+  const { data: metas = [] } = useMetas();
+
   // Perfil state
   const [nome, setNome] = useState(user.nome || "Usuário Modo");
-  const [email] = useState(user.email || "email@email.com");
+  const [email] = useState(user.email || "");
   const [salvandoPerfil, setSalvandoPerfil] = useState(false);
 
   // Notificações state
@@ -51,8 +58,8 @@ function Configuracoes() {
     setTemaAtual(getStoredTheme());
   }, []);
 
-  function handleSelecionarTema(tema: typeof TEMAS[number]) {
-    if (tema.premium && PLANO_USUARIO === "gratis") {
+  async function handleSelecionarTema(tema: typeof TEMAS[number]) {
+    if (tema.premium && planoUsuario === "gratis") {
       toast.info("Tema exclusivo do plano Premium!", {
         description: "Faça o upgrade para desbloquear todos os 6 temas adicionais.",
         action: {
@@ -67,25 +74,29 @@ function Configuracoes() {
 
     applyTheme(tema.id);
     setTemaAtual(tema.id);
+    await atualizarPerfil({ tema: tema.id });
     toast.success(`Tema "${tema.nome}" aplicado com sucesso!`);
   }
 
-  function handleSalvarPerfil(e: React.FormEvent) {
+  async function handleSalvarPerfil(e: React.FormEvent) {
     e.preventDefault();
     setSalvandoPerfil(true);
-    setTimeout(() => {
-      setSalvandoPerfil(false);
+    const { error } = await atualizarPerfil({ nome });
+    setSalvandoPerfil(false);
+    if (error) {
+      toast.error(`Erro ao atualizar perfil: ${error}`);
+    } else {
       toast.success("Perfil atualizado com sucesso!");
-    }, 600);
+    }
   }
 
   function handleExportarDados() {
     const dados = {
-      usuario: { nome, email, plano: PLANO_USUARIO },
-      modos: MODOS,
-      tarefas: TAREFAS,
-      habitos: HABITOS,
-      metas: METAS,
+      usuario: { nome, email, plano: planoUsuario },
+      modos,
+      tarefas,
+      habitos,
+      metas,
       exportadoEm: new Date().toISOString(),
     };
 
@@ -155,7 +166,7 @@ function Configuracoes() {
               </div>
               <div className="mt-2 flex items-center gap-2 rounded-xl bg-secondary/80 px-3 py-1.5 text-xs font-medium text-foreground md:mt-0">
                 <Sparkles size={14} className="text-primary" />
-                <span>Plano atual: <strong className="capitalize">{PLANO_USUARIO}</strong></span>
+                <span>Plano atual: <strong className="capitalize">{planoUsuario}</strong></span>
               </div>
             </div>
 
@@ -163,7 +174,7 @@ function Configuracoes() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {TEMAS.map((tema) => {
                 const isSelected = temaAtual === tema.id;
-                const isBloqueado = tema.premium && PLANO_USUARIO === "gratis";
+                const isBloqueado = tema.premium && planoUsuario === "gratis";
 
                 return (
                   <div
@@ -238,7 +249,7 @@ function Configuracoes() {
           </div>
 
           {/* Banner de upgrade de temas */}
-          {PLANO_USUARIO === "gratis" && (
+          {planoUsuario === "gratis" && (
             <div className="flex flex-col items-start justify-between gap-4 rounded-2xl border border-primary/20 bg-primary/5 p-6 md:flex-row md:items-center">
               <div className="flex items-start gap-3">
                 <Crown className="mt-1 h-5 w-5 text-primary shrink-0" />

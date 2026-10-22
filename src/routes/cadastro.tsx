@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
-import { signUp } from "@/lib/mock-auth";
+import { signUp } from "@/lib/supabase-auth";
 import { AuthShell } from "@/components/AuthShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,8 +33,9 @@ function Cadastro() {
     setErro(null);
     if (senha.length < 6) return setErro("A senha precisa ter pelo menos 6 caracteres.");
     setLoading(true);
-    await signUp(nome.trim(), email, senha);
+    const { error } = await signUp(nome.trim(), email, senha);
     setLoading(false);
+    if (error) return setErro(error);
     setEnviado(true);
   }
 

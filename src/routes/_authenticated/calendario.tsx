@@ -3,7 +3,7 @@ import { useState } from "react";
 import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
-import { TAREFAS, MODOS } from "@/lib/mock-data";
+import { useTarefas, useModos } from "@/hooks/use-supabase-data";
 
 export const Route = createFileRoute("/_authenticated/calendario")({
   head: () => ({ meta: [{ title: "Calendário — Modo" }] }),
@@ -15,6 +15,9 @@ const DIAS_SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 function Calendario() {
   const { user } = Route.useRouteContext();
+  const { data: tarefas = [] } = useTarefas();
+  const { data: modos = [] } = useModos();
+
   const hoje = new Date();
   const [ano, setAno] = useState(hoje.getFullYear());
   const [mes, setMes] = useState(hoje.getMonth());
@@ -34,8 +37,9 @@ function Calendario() {
   const totalDias = new Date(ano, mes + 1, 0).getDate();
 
   // Tarefas indexadas por data
-  const tarefasPorDia: Record<string, typeof TAREFAS> = {};
-  TAREFAS.forEach((t) => {
+  const tarefasPorDia: Record<string, typeof tarefas> = {};
+  tarefas.forEach((t) => {
+    if (!t.prazo) return;
     const d = t.prazo.slice(0, 10);
     if (!tarefasPorDia[d]) tarefasPorDia[d] = [];
     tarefasPorDia[d].push(t);
@@ -116,7 +120,7 @@ function Calendario() {
                   }`}>{dia}</span>
                   <div className="mt-1 space-y-0.5">
                     {tDia.slice(0, 2).map((t) => {
-                      const modo = MODOS.find((m) => m.id === t.modoId);
+                      const modo = modos.find((m) => m.id === t.modo_id);
                       return (
                         <div
                           key={t.id}
@@ -157,7 +161,7 @@ function Calendario() {
                   </div>
                   <div className="space-y-1.5 min-h-[120px]">
                     {tDia.map((t) => {
-                      const modo = MODOS.find((m) => m.id === t.modoId);
+                      const modo = modos.find((m) => m.id === t.modo_id);
                       return (
                         <div
                           key={t.id}
@@ -184,7 +188,7 @@ function Calendario() {
 
       {/* Legenda */}
       <div className="mt-6 flex flex-wrap gap-3">
-        {MODOS.map((m) => (
+        {modos.map((m) => (
           <div key={m.id} className="flex items-center gap-2">
             <span className="h-3 w-3 rounded-full" style={{ background: m.cor }} />
             <span className="text-xs text-muted-foreground">{m.nome}</span>

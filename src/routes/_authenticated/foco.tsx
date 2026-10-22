@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { Play, Pause, RotateCcw, SkipForward, Timer } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
-import { TAREFAS, SESSOES_FOCO } from "@/lib/mock-data";
+import { useTarefas, useSessoesFoco, useCreateSessaoFoco } from "@/hooks/use-supabase-data";
 
 export const Route = createFileRoute("/_authenticated/foco")({
   head: () => ({ meta: [{ title: "Foco — Modo" }] }),
@@ -21,6 +21,10 @@ const CONFIGS = {
 function Foco() {
   const { user } = Route.useRouteContext();
 
+  const { data: tarefas = [] } = useTarefas();
+  const { data: sessoes = [] } = useSessoesFoco();
+  const createSessao = useCreateSessaoFoco();
+
   const [fase, setFase] = useState<Fase>("foco");
   const [duracaoFoco, setDuracaoFoco] = useState(25);
   const [duracaoPausa, setDuracaoPausa] = useState(5);
@@ -28,7 +32,6 @@ function Foco() {
   const [rodando, setRodando] = useState(false);
   const [ciclos, setCiclos] = useState(0);
   const [tarefaSelecionada, setTarefaSelecionada] = useState("");
-  const [sessoes, setSessoes] = useState(SESSOES_FOCO);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const total = (fase === "foco" ? duracaoFoco : fase === "pausa" ? duracaoPausa : CONFIGS.pausa_longa) * 60;
@@ -45,15 +48,11 @@ function Foco() {
             setRodando(false);
             if (fase === "foco") {
               setCiclos((c) => c + 1);
-              setSessoes((prev) => [
-                {
-                  id: `sf${Date.now()}`,
-                  tarefaId: tarefaSelecionada || undefined,
-                  duracaoMin: duracaoFoco,
-                  concluidaEm: new Date().toISOString().split("T")[0],
-                },
-                ...prev,
-              ]);
+              // Save session to Supabase
+              createSessao.mutate({
+                duracao_min: duracaoFoco,
+                tarefa_id: tarefaSelecionada || null,
+              });
               const novaFase: Fase = (ciclos + 1) % 4 === 0 ? "pausa_longa" : "pausa";
               setFase(novaFase);
               setSegundos((novaFase === "pausa_longa" ? CONFIGS.pausa_longa : duracaoPausa) * 60);
@@ -94,8 +93,9 @@ function Foco() {
   const corFase = fase === "foco" ? "text-primary" : fase === "pausa" ? "text-emerald-500" : "text-cyan-500";
   const bgFase = fase === "foco" ? "bg-primary" : fase === "pausa" ? "bg-emerald-500" : "bg-cyan-500";
 
-  const sessoesHoje = sessoes.filter((s) => s.concluidaEm === new Date().toISOString().split("T")[0]);
-  const minFocoHoje = sessoesHoje.reduce((a, s) => a + s.duracaoMin, 0);
+  const hoje = new Date().toISOString().split("T")[0];
+  const sessoesHoje = sessoes.filter((s) => s.concluida_em === hoje);
+  const minFocoHoje = sessoesHoje.reduce((a, s) => a + s.duracao_min, 0);
 
   return (
     <AppLayout user={user}>
@@ -182,7 +182,7 @@ function Foco() {
               className="w-full rounded-xl border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="">Sem tarefa</option>
-              {TAREFAS.filter((t) => t.status !== "concluida").map((t) => (
+              {tarefas.filter((t) => t.status !== "concluida").map((t) => (
                 <option key={t.id} value={t.id}>{t.titulo}</option>
               ))}
             </select>
@@ -231,14 +231,14 @@ function Foco() {
             ) : (
               <ul className="space-y-2">
                 {sessoesHoje.map((s) => {
-                  const tarefa = TAREFAS.find((t) => t.id === s.tarefaId);
+                  const tarefa = tarefas.find((t) => t.id === s.tarefa_id);
                   return (
                     <li key={s.id} className="flex items-center gap-3 rounded-xl bg-secondary/50 px-3 py-2.5">
                       <Timer size={14} className="shrink-0 text-primary" />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium text-foreground">{tarefa?.titulo || "Sessão livre"}</p>
                       </div>
-                      <span className="shrink-0 text-xs font-semibold text-primary">{s.duracaoMin}min</span>
+                      <span className="shrink-0 text-xs font-semibold text-primary">{s.duracao_min}min</span>
                     </li>
                   );
                 })}

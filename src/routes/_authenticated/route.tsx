@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
-import { sessaoAtual } from "@/lib/mock-auth";
+import { sessaoAtual } from "@/lib/supabase-auth";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,

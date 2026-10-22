@@ -17,7 +17,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { Logo } from "./AuthShell";
-import { signOut } from "@/lib/mock-auth";
+import { signOut } from "@/lib/supabase-auth";
 import { useNavigate } from "@tanstack/react-router";
 import { Button } from "./ui/button";
 

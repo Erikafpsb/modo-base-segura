@@ -1,9 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Plus, CheckCircle2, Circle, Trash2, Target, TrendingUp } from "lucide-react";
+import { Plus, CheckCircle2, Circle, Target, TrendingUp, Loader2 } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
-import { HABITOS, METAS, type Habito, type Meta } from "@/lib/mock-data";
+import {
+  useHabitos, useCreateHabito, useUpdateHabito, useDeleteHabito,
+  useMetas, useCreateMeta, useUpdateMeta, useDeleteMeta,
+} from "@/hooks/use-supabase-data";
 
 export const Route = createFileRoute("/_authenticated/habitos")({
   head: () => ({ meta: [{ title: "Hábitos & Metas — Modo" }] }),
@@ -12,15 +15,20 @@ export const Route = createFileRoute("/_authenticated/habitos")({
 
 const ICONES_HABITOS: Record<string, string> = {
   droplets: "💧", heart: "❤️", "book-open": "📖", dumbbell: "🏋️",
-  sun: "☀️", moon: "🌙", apple: "🍎", music: "🎵",
+  sun: "☀️", moon: "🌙", apple: "🍎", music: "🎵", check: "✅",
 };
 
 function Habitos() {
   const { user } = Route.useRouteContext();
   const hoje = new Date().toISOString().split("T")[0];
 
-  const [habitos, setHabitos] = useState<Habito[]>(HABITOS);
-  const [metas, setMetas] = useState<Meta[]>(METAS);
+  const { data: habitos = [], isLoading: loadingHabitos } = useHabitos();
+  const { data: metas = [], isLoading: loadingMetas } = useMetas();
+  const createHabito = useCreateHabito();
+  const updateHabito = useUpdateHabito();
+  const createMeta = useCreateMeta();
+  const updateMeta = useUpdateMeta();
+
   const [aba, setAba] = useState<"habitos" | "metas">("habitos");
 
   // Criar hábito
@@ -34,42 +42,27 @@ function Habitos() {
   const [novoMetaPrazo, setNovoMetaPrazo] = useState("");
   const [novoMetaProgresso, setNovoMetaProgresso] = useState(0);
 
-  function toggleHabito(id: string) {
-    setHabitos((prev) =>
-      prev.map((h) => {
-        if (h.id !== id) return h;
-        const registros = h.registros.includes(hoje)
-          ? h.registros.filter((r) => r !== hoje)
-          : [...h.registros, hoje];
-        return { ...h, registros };
-      }),
-    );
+  async function toggleHabito(id: string, registros: string[]) {
+    const novosRegistros = (registros as string[]).includes(hoje)
+      ? (registros as string[]).filter((r) => r !== hoje)
+      : [...(registros as string[]), hoje];
+    await updateHabito.mutateAsync({ id, registros: novosRegistros });
   }
 
-  function criarHabito() {
+  async function criarHabito() {
     if (!novoHabito.trim()) return;
-    const novo: Habito = {
-      id: `h${Date.now()}`,
-      nome: novoHabito.trim(),
-      icone: "heart",
-      cor: novaCor,
-      frequencia: "diario",
-      registros: [],
-    };
-    setHabitos((prev) => [...prev, novo]);
+    await createHabito.mutateAsync({ nome: novoHabito.trim(), cor: novaCor, icone: "heart" });
     setNovoHabito("");
     setCriandoHabito(false);
   }
 
-  function criarMeta() {
+  async function criarMeta() {
     if (!novoMetaTitulo.trim() || !novoMetaPrazo) return;
-    const nova: Meta = {
-      id: `mt${Date.now()}`,
+    await createMeta.mutateAsync({
       titulo: novoMetaTitulo.trim(),
       prazo: novoMetaPrazo,
       progresso: novoMetaProgresso,
-    };
-    setMetas((prev) => [...prev, nova]);
+    });
     setNovoMetaTitulo("");
     setNovoMetaPrazo("");
     setNovoMetaProgresso(0);
@@ -81,6 +74,8 @@ function Habitos() {
     const d = new Date(); d.setDate(d.getDate() - (6 - i));
     return d.toISOString().split("T")[0];
   });
+
+  const isLoading = aba === "habitos" ? loadingHabitos : loadingMetas;
 
   return (
     <AppLayout user={user}>
@@ -110,8 +105,14 @@ function Habitos() {
         </button>
       </div>
 
+      {isLoading && (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      )}
+
       {/* Hábitos */}
-      {aba === "habitos" && (
+      {!isLoading && aba === "habitos" && (
         <div className="space-y-4">
           {criandoHabito && (
             <div className="rounded-2xl border bg-card p-5 shadow-soft">
@@ -127,15 +128,18 @@ function Habitos() {
                   onKeyDown={(e) => e.key === "Enter" && criarHabito()}
                 />
                 <input type="color" value={novaCor} onChange={(e) => setNovaCor(e.target.value)} className="h-9 w-12 cursor-pointer rounded-xl border bg-background p-1" />
-                <Button onClick={criarHabito} disabled={!novoHabito.trim()}>Criar</Button>
+                <Button onClick={criarHabito} disabled={!novoHabito.trim() || createHabito.isPending}>
+                  {createHabito.isPending ? <Loader2 size={14} className="animate-spin" /> : "Criar"}
+                </Button>
                 <Button variant="ghost" onClick={() => setCriandoHabito(false)}>Cancelar</Button>
               </div>
             </div>
           )}
 
           {habitos.map((h) => {
-            const feitoHoje = h.registros.includes(hoje);
-            const sequencia = ultimos7.filter((d) => h.registros.includes(d)).length;
+            const registros = h.registros as string[];
+            const feitoHoje = registros.includes(hoje);
+            const sequencia = ultimos7.filter((d) => registros.includes(d)).length;
             return (
               <div key={h.id} className="rounded-2xl border bg-card p-5">
                 <div className="mb-4 flex items-center justify-between">
@@ -149,7 +153,7 @@ function Habitos() {
                     </div>
                   </div>
                   <button
-                    onClick={() => toggleHabito(h.id)}
+                    onClick={() => toggleHabito(h.id, registros)}
                     className={`flex h-10 w-10 items-center justify-center rounded-xl border-2 transition-all ${
                       feitoHoje
                         ? "border-transparent shadow-sm"
@@ -164,7 +168,7 @@ function Habitos() {
                 {/* Histórico 7 dias */}
                 <div className="flex gap-1.5">
                   {ultimos7.map((d) => {
-                    const feito = h.registros.includes(d);
+                    const feito = registros.includes(d);
                     const isHoje = d === hoje;
                     return (
                       <div
@@ -174,7 +178,6 @@ function Habitos() {
                         style={{
                           height: "24px",
                           background: feito ? h.cor : "var(--color-secondary)",
-                          ringColor: h.cor,
                         }}
                       />
                     );
@@ -197,7 +200,7 @@ function Habitos() {
       )}
 
       {/* Metas */}
-      {aba === "metas" && (
+      {!isLoading && aba === "metas" && (
         <div className="space-y-4">
           {criandoMeta && (
             <div className="rounded-2xl border bg-card p-5 shadow-soft">
@@ -235,14 +238,18 @@ function Habitos() {
                 </div>
               </div>
               <div className="mt-4 flex gap-2">
-                <Button onClick={criarMeta} disabled={!novoMetaTitulo.trim() || !novoMetaPrazo}>Criar meta</Button>
+                <Button onClick={criarMeta} disabled={!novoMetaTitulo.trim() || !novoMetaPrazo || createMeta.isPending}>
+                  {createMeta.isPending ? <Loader2 size={14} className="animate-spin" /> : "Criar meta"}
+                </Button>
                 <Button variant="ghost" onClick={() => setCriandoMeta(false)}>Cancelar</Button>
               </div>
             </div>
           )}
 
           {metas.map((m) => {
-            const diasRestantes = Math.ceil((new Date(m.prazo).getTime() - Date.now()) / 86400000);
+            const diasRestantes = m.prazo
+              ? Math.ceil((new Date(m.prazo).getTime() - Date.now()) / 86400000)
+              : null;
             return (
               <div key={m.id} className="rounded-2xl border bg-card p-5">
                 <div className="mb-1 flex items-start justify-between gap-3">
@@ -252,9 +259,11 @@ function Habitos() {
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1">
                     <span className="text-2xl font-bold text-primary">{m.progresso}%</span>
-                    <span className={`text-xs ${diasRestantes < 0 ? "text-destructive" : "text-muted-foreground"}`}>
-                      {diasRestantes < 0 ? `${Math.abs(diasRestantes)}d atrasada` : `${diasRestantes}d restantes`}
-                    </span>
+                    {diasRestantes !== null && (
+                      <span className={`text-xs ${diasRestantes < 0 ? "text-destructive" : "text-muted-foreground"}`}>
+                        {diasRestantes < 0 ? `${Math.abs(diasRestantes)}d atrasada` : `${diasRestantes}d restantes`}
+                      </span>
+                    )}
                   </div>
                 </div>
                 {m.descricao && <p className="mb-3 text-sm text-muted-foreground">{m.descricao}</p>}
@@ -262,10 +271,12 @@ function Habitos() {
                   <div className="h-full rounded-full bg-primary transition-all duration-700" style={{ width: `${m.progresso}%` }} />
                 </div>
                 <div className="mt-2 flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">
-                    Prazo: {new Date(m.prazo + "T00:00:00").toLocaleDateString("pt-BR")}
-                  </span>
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  {m.prazo && (
+                    <span className="text-xs text-muted-foreground">
+                      Prazo: {new Date(m.prazo + "T00:00:00").toLocaleDateString("pt-BR")}
+                    </span>
+                  )}
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground ml-auto">
                     <TrendingUp size={12} />
                     <span>Meta {m.progresso >= 100 ? "concluída! 🎉" : "em andamento"}</span>
                   </div>

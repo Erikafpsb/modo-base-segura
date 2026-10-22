@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { BarChart2, CheckCircle2, Clock, Flame, AlertTriangle, TrendingUp, Lock } from "lucide-react";
+import { BarChart2, CheckCircle2, Clock, Flame, AlertTriangle, TrendingUp, Lock, Loader2 } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
-import { TAREFAS, HABITOS, SESSOES_FOCO, MODOS, PLANO_USUARIO } from "@/lib/mock-data";
+import { useTarefas, useHabitos, useSessoesFoco, useModos } from "@/hooks/use-supabase-data";
+import { usePerfil } from "@/hooks/use-supabase-data";
 
 export const Route = createFileRoute("/_authenticated/estatisticas")({
   head: () => ({ meta: [{ title: "Estatísticas — Modo" }] }),
@@ -10,35 +11,53 @@ export const Route = createFileRoute("/_authenticated/estatisticas")({
 
 function Estatisticas() {
   const { user } = Route.useRouteContext();
-  const isPremium = PLANO_USUARIO === "premium";
+  const { data: perfil } = usePerfil();
+  const isPremium = perfil?.plano === "premium" || user.plano === "premium";
 
-  const concluidas = TAREFAS.filter((t) => t.status === "concluida").length;
-  const pendentes = TAREFAS.filter((t) => t.status === "pendente" || t.status === "em_progresso").length;
-  const atrasadas = TAREFAS.filter((t) => t.status === "atrasada").length;
-  const totalTarefas = TAREFAS.length;
+  const { data: tarefas = [], isLoading: loadT } = useTarefas();
+  const { data: habitos = [], isLoading: loadH } = useHabitos();
+  const { data: sessoes = [], isLoading: loadS } = useSessoesFoco();
+  const { data: modos = [], isLoading: loadM } = useModos();
+
+  const isLoading = loadT || loadH || loadS || loadM;
+
+  const concluidas = tarefas.filter((t) => t.status === "concluida").length;
+  const pendentes = tarefas.filter((t) => t.status === "pendente" || t.status === "em_progresso").length;
+  const atrasadas = tarefas.filter((t) => t.status === "atrasada").length;
+  const totalTarefas = tarefas.length;
   const taxaConclusao = totalTarefas > 0 ? Math.round((concluidas / totalTarefas) * 100) : 0;
 
-  const totalSessoes = SESSOES_FOCO.length;
-  const totalMinFoco = SESSOES_FOCO.reduce((a, s) => a + s.duracaoMin, 0);
+  const totalSessoes = sessoes.length;
+  const totalMinFoco = sessoes.reduce((a, s) => a + s.duracao_min, 0);
 
   const hoje = new Date().toISOString().split("T")[0];
-  const habitosHoje = HABITOS.filter((h) => h.registros.includes(hoje)).length;
+  const habitosHoje = habitos.filter((h) => (h.registros as string[]).includes(hoje)).length;
 
   // Tarefas por modo
-  const tarefasPorModo = MODOS.map((m) => ({
+  const tarefasPorModo = modos.map((m) => ({
     ...m,
-    total: TAREFAS.filter((t) => t.modoId === m.id).length,
-    concluidas: TAREFAS.filter((t) => t.modoId === m.id && t.status === "concluida").length,
+    total: tarefas.filter((t) => t.modo_id === m.id).length,
+    concluidas: tarefas.filter((t) => t.modo_id === m.id && t.status === "concluida").length,
   }));
 
   // Últimos 7 dias — sessões de foco
   const ultimos7 = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(); d.setDate(d.getDate() - (6 - i));
     const iso = d.toISOString().split("T")[0];
-    const min = SESSOES_FOCO.filter((s) => s.concluidaEm === iso).reduce((a, s) => a + s.duracaoMin, 0);
+    const min = sessoes.filter((s) => s.concluida_em === iso).reduce((a, s) => a + s.duracao_min, 0);
     return { iso, label: d.toLocaleDateString("pt-BR", { weekday: "short" }), min };
   });
   const maxMin = Math.max(...ultimos7.map((d) => d.min), 1);
+
+  if (isLoading) {
+    return (
+      <AppLayout user={user}>
+        <div className="flex items-center justify-center py-24">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout user={user}>
@@ -52,7 +71,7 @@ function Estatisticas() {
         <StatCard color="text-primary" icon={<CheckCircle2 size={20} />} label="Concluídas" value={concluidas} sub="tarefas" />
         <StatCard color="text-amber-500" icon={<AlertTriangle size={20} />} label="Atrasadas" value={atrasadas} sub="tarefas" />
         <StatCard color="text-cyan-500" icon={<Clock size={20} />} label="Foco total" value={`${totalMinFoco}min`} sub={`${totalSessoes} sessões`} />
-        <StatCard color="text-emerald-500" icon={<Flame size={20} />} label="Hábitos hoje" value={habitosHoje} sub={`de ${HABITOS.length}`} />
+        <StatCard color="text-emerald-500" icon={<Flame size={20} />} label="Hábitos hoje" value={habitosHoje} sub={`de ${habitos.length}`} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -100,52 +119,60 @@ function Estatisticas() {
         {/* Tarefas por modo */}
         <div className="rounded-2xl border bg-card p-5">
           <h2 className="mb-4 font-display text-lg font-semibold text-foreground">Tarefas por modo</h2>
-          <div className="space-y-3">
-            {tarefasPorModo.map((m) => {
-              const pct = m.total > 0 ? Math.round((m.concluidas / m.total) * 100) : 0;
-              return (
-                <div key={m.id}>
-                  <div className="mb-1 flex items-center justify-between">
-                    <span className="text-sm font-medium text-foreground">{m.nome}</span>
-                    <span className="text-xs text-muted-foreground">{m.concluidas}/{m.total} · {pct}%</span>
+          {tarefasPorModo.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum modo criado ainda.</p>
+          ) : (
+            <div className="space-y-3">
+              {tarefasPorModo.map((m) => {
+                const pct = m.total > 0 ? Math.round((m.concluidas / m.total) * 100) : 0;
+                return (
+                  <div key={m.id}>
+                    <div className="mb-1 flex items-center justify-between">
+                      <span className="text-sm font-medium text-foreground">{m.nome}</span>
+                      <span className="text-xs text-muted-foreground">{m.concluidas}/{m.total} · {pct}%</span>
+                    </div>
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
+                      <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: m.cor }} />
+                    </div>
                   </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
-                    <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: m.cor }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Hábitos semana */}
         <div className="rounded-2xl border bg-card p-5">
           <h2 className="mb-4 font-display text-lg font-semibold text-foreground">Hábitos esta semana</h2>
-          <div className="space-y-3">
-            {HABITOS.map((h) => {
-              const ultimos7dias = Array.from({ length: 7 }, (_, i) => {
-                const d = new Date(); d.setDate(d.getDate() - (6 - i));
-                return d.toISOString().split("T")[0];
-              });
-              const feitos = ultimos7dias.filter((d) => h.registros.includes(d)).length;
-              return (
-                <div key={h.id} className="flex items-center gap-3">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg text-sm" style={{ background: h.cor + "22" }}>
-                    {h.nome[0]}
+          {habitos.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum hábito criado ainda.</p>
+          ) : (
+            <div className="space-y-3">
+              {habitos.map((h) => {
+                const ultimos7dias = Array.from({ length: 7 }, (_, i) => {
+                  const d = new Date(); d.setDate(d.getDate() - (6 - i));
+                  return d.toISOString().split("T")[0];
+                });
+                const feitos = ultimos7dias.filter((d) => (h.registros as string[]).includes(d)).length;
+                return (
+                  <div key={h.id} className="flex items-center gap-3">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg text-sm" style={{ background: h.cor + "22" }}>
+                      {h.nome[0]}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-foreground">{h.nome}</p>
+                    </div>
+                    <div className="flex gap-1">
+                      {ultimos7dias.map((d, i) => (
+                        <div key={i} className="h-4 w-4 rounded-sm" style={{ background: (h.registros as string[]).includes(d) ? h.cor : "var(--color-secondary)" }} />
+                      ))}
+                    </div>
+                    <span className="text-xs font-semibold" style={{ color: h.cor }}>{feitos}/7</span>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">{h.nome}</p>
-                  </div>
-                  <div className="flex gap-1">
-                    {ultimos7dias.map((d, i) => (
-                      <div key={i} className="h-4 w-4 rounded-sm" style={{ background: h.registros.includes(d) ? h.cor : "var(--color-secondary)" }} />
-                    ))}
-                  </div>
-                  <span className="text-xs font-semibold" style={{ color: h.cor }}>{feitos}/7</span>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 

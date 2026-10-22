@@ -16,7 +16,6 @@ import {
 } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
-import { PLANO_USUARIO } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/_authenticated/planos")({
   head: () => ({
@@ -83,7 +82,7 @@ export function Planos() {
           <div>
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-bold text-foreground">Plano Grátis</h2>
-              {PLANO_USUARIO === "gratis" && (
+              {(user.plano ?? "gratis") === "gratis" && (
                 <span className="rounded-full bg-secondary px-3 py-1 text-xs font-semibold text-foreground">
                   Seu Plano Atual
                 </span>

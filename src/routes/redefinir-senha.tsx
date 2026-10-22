@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
-import { updatePassword } from "@/lib/mock-auth";
+import { updatePassword } from "@/lib/supabase-auth";
 import { AuthShell } from "@/components/AuthShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,8 +31,9 @@ function Redefinir() {
     setErro(null);
     if (senha.length < 6) return setErro("A senha precisa ter pelo menos 6 caracteres.");
     setLoading(true);
-    await updatePassword(senha);
+    const { error } = await updatePassword(senha);
     setLoading(false);
+    if (error) return setErro(error);
     navigate({ to: "/entrar", replace: true });
   }
 

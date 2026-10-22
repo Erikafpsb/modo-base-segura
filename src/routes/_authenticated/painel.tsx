@@ -3,7 +3,7 @@ import { CheckSquare, Clock, AlertTriangle, TrendingUp, Plus, Layers, CalendarDa
 import { Link } from "@tanstack/react-router";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
-import { TAREFAS, HABITOS, SESSOES_FOCO, MODOS } from "@/lib/mock-data";
+import { useTarefas, useHabitos, useSessoesFoco, useModos } from "@/hooks/use-supabase-data";
 
 export const Route = createFileRoute("/_authenticated/painel")({
   head: () => ({
@@ -28,16 +28,23 @@ function Painel() {
   const { user } = Route.useRouteContext();
   const nome = user.nome?.split(" ")[0] || "";
 
-  const hoje = new Date().toISOString().split("T")[0];
-  const tarefasHoje = TAREFAS.filter((t) => t.prazo === hoje && t.status !== "concluida");
-  const atrasadas = TAREFAS.filter((t) => t.status === "atrasada");
-  const concluidas = TAREFAS.filter((t) => t.status === "concluida");
-  const totalPendentes = TAREFAS.filter((t) => t.status !== "concluida").length;
-  const totalTarefas = TAREFAS.length;
-  const progressoDiario = Math.round((concluidas.length / totalTarefas) * 100);
+  const { data: tarefas = [] } = useTarefas();
+  const { data: habitos = [] } = useHabitos();
+  const { data: sessoes = [] } = useSessoesFoco();
+  const { data: modos = [] } = useModos();
 
-  const habitosHoje = HABITOS.filter((h) => h.registros.includes(hoje)).length;
-  const minutosFoco = SESSOES_FOCO.filter((s) => s.concluidaEm === hoje).reduce((a, s) => a + s.duracaoMin, 0);
+  const hoje = new Date().toISOString().split("T")[0];
+  const tarefasHoje = tarefas.filter((t) => t.prazo === hoje && t.status !== "concluida");
+  const atrasadas = tarefas.filter((t) => t.status === "atrasada");
+  const concluidas = tarefas.filter((t) => t.status === "concluida");
+  const totalPendentes = tarefas.filter((t) => t.status !== "concluida").length;
+  const totalTarefas = tarefas.length;
+  const progressoDiario = totalTarefas > 0 ? Math.round((concluidas.length / totalTarefas) * 100) : 0;
+
+  const habitosHoje = habitos.filter((h) => (h.registros as string[]).includes(hoje)).length;
+  const minutosFoco = sessoes
+    .filter((s) => s.concluida_em === hoje)
+    .reduce((a, s) => a + s.duracao_min, 0);
 
   return (
     <AppLayout user={user}>
@@ -54,7 +61,7 @@ function Painel() {
         <StatCard icon={<CheckSquare className="h-5 w-5 text-primary" />} label="Concluídas" value={concluidas.length} sub="tarefas" />
         <StatCard icon={<AlertTriangle className="h-5 w-5 text-amber-500" />} label="Pendentes" value={totalPendentes} sub="tarefas" />
         <StatCard icon={<Clock className="h-5 w-5 text-cyan-500" />} label="Foco hoje" value={`${minutosFoco}min`} sub="de sessões" />
-        <StatCard icon={<TrendingUp className="h-5 w-5 text-emerald-500" />} label="Hábitos hoje" value={habitosHoje} sub={`de ${HABITOS.length}`} />
+        <StatCard icon={<TrendingUp className="h-5 w-5 text-emerald-500" />} label="Hábitos hoje" value={habitosHoje} sub={`de ${habitos.length}`} />
       </div>
 
       {/* Progresso diário */}
@@ -89,7 +96,7 @@ function Painel() {
                 <li key={t.id} className="flex items-center gap-3 rounded-xl bg-secondary/50 px-3 py-2.5">
                   <PrioridadePonto prioridade={t.prioridade} />
                   <span className="min-w-0 flex-1 truncate text-sm text-foreground">{t.titulo}</span>
-                  <ModoTag modoId={t.modoId} />
+                  <ModoTag modoId={t.modo_id} modos={modos} />
                 </li>
               ))}
               {tarefasHoje.length > 5 && (
@@ -117,7 +124,7 @@ function Painel() {
                 <li key={t.id} className="flex items-center gap-3 rounded-xl bg-destructive/8 px-3 py-2.5">
                   <AlertTriangle size={14} className="shrink-0 text-destructive" />
                   <span className="min-w-0 flex-1 truncate text-sm text-foreground">{t.titulo}</span>
-                  <span className="text-xs text-destructive">{new Date(t.prazo).toLocaleDateString("pt-BR")}</span>
+                  {t.prazo && <span className="text-xs text-destructive">{new Date(t.prazo).toLocaleDateString("pt-BR")}</span>}
                 </li>
               ))}
             </ul>
@@ -165,8 +172,9 @@ function PrioridadePonto({ prioridade }: { prioridade: string }) {
   return <span className={`h-2 w-2 shrink-0 rounded-full ${cores[prioridade] || "bg-muted-foreground"}`} />;
 }
 
-function ModoTag({ modoId }: { modoId: string }) {
-  const modo = MODOS.find((m) => m.id === modoId);
+function ModoTag({ modoId, modos }: { modoId: string | null; modos: { id: string; nome: string; cor: string }[] }) {
+  if (!modoId) return null;
+  const modo = modos.find((m) => m.id === modoId);
   if (!modo) return null;
   return (
     <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold text-white" style={{ background: modo.cor }}>
