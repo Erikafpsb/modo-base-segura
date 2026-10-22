@@ -200,3 +200,22 @@ O produto será considerado pronto para testes quando:
 **Fase 5 — Planos e revisão:** limites de uso, comparação de planos, testes de segurança, responsividade e correções.
 
 Implementar uma fase por vez, testar antes de avançar e evitar alterações fora do escopo. O resultado deve ser uma primeira versão funcional, visualmente atraente e simples de manter, sem inteligência artificial e usando um único projeto Supabase.
+
+## 13. Como fazer Deploy na Vercel
+
+O projeto foi configurado com detecção automática do ambiente da Vercel através do Nitro / TanStack Start.
+
+### Passos para deploy:
+1. Conecte o repositório Git na sua conta da [Vercel](https://vercel.com).
+2. Na tela de importação:
+   - No campo **Project Name**, utilize um nome exclusivo (por exemplo: `modo-base-segura` ou `modo-app`). Se informar que já existe, basta alterar para outro nome inédito na sua conta.
+   - O framework será detectado e usará as configurações padrão (`npm run build`).
+
+3. Nas configurações do projeto (**Settings** > **Environment Variables**), adicione as seguintes variáveis de ambiente:
+   - `VITE_SUPABASE_URL` = `https://<seu-projeto>.supabase.co`
+   - `VITE_SUPABASE_PUBLISHABLE_KEY` = `<sua-chave-publica-ou-anon>`
+   - `VITE_SUPABASE_PROJECT_ID` = `<seu-projeto-id>`
+   - `SUPABASE_URL` = `https://<seu-projeto>.supabase.co`
+   - `SUPABASE_PUBLISHABLE_KEY` = `<sua-chave-publica-ou-anon>`
+4. Clique em **Deploy**. A compilação gerará automaticamente o preset serverless da Vercel (`.vercel/output`).
+
