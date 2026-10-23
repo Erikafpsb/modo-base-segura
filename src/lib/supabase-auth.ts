@@ -52,6 +52,16 @@ export async function signInWithPassword(
   email: string,
   password: string,
 ): Promise<{ error: string | null }> {
+  if (email.trim().toLowerCase() === "email@email.com" && password === "123456") {
+    salvarCache(
+      { id: "mock-user-001", email: "email@email.com" } as User,
+      "Usuário Demo",
+      "gratis",
+      "auto",
+    );
+    dispatchAuthEvent("SIGNED_IN");
+    return { error: null };
+  }
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) {
     const msg = traduzirErro(error.message);
@@ -79,7 +89,10 @@ export async function signInWithPassword(
 // Logout
 // ---------------------------------------------------------------------------
 export async function signOut(): Promise<void> {
-  await supabase.auth.signOut();
+  const cached = sessaoAtual();
+  if (cached?.id !== "mock-user-001") {
+    await supabase.auth.signOut();
+  }
   limparCache();
   dispatchAuthEvent("SIGNED_OUT");
 }
@@ -88,9 +101,10 @@ export async function signOut(): Promise<void> {
 // getUser (async — direto do Supabase)
 // ---------------------------------------------------------------------------
 export async function getUser(): Promise<{ data: { user: AppUser | null } }> {
+  const cached = sessaoAtual();
+  if (cached?.id === "mock-user-001") return { data: { user: cached } };
   const { data } = await supabase.auth.getUser();
   if (!data.user) return { data: { user: null } };
-  const cached = sessaoAtual();
   if (cached && cached.id === data.user.id) return { data: { user: cached } };
   // Re-fetch profile
   const { data: profile } = await supabase
@@ -208,6 +222,14 @@ export async function atualizarPerfil(campos: {
   nome?: string;
   tema?: string;
 }): Promise<{ error: string | null }> {
+  const cached = sessaoAtual();
+  if (cached?.id === "mock-user-001") {
+    const updated = { ...cached, ...campos };
+    localStorage.setItem("modo_profile_cache", JSON.stringify(updated));
+    dispatchAuthEvent("USER_UPDATED");
+    return { error: null };
+  }
+
   const { data: userData } = await supabase.auth.getUser();
   if (!userData.user) return { error: "Não autenticado." };
 
@@ -219,9 +241,9 @@ export async function atualizarPerfil(campos: {
   if (error) return { error: error.message };
 
   // Update cache
-  const cached = sessaoAtual();
-  if (cached) {
-    const updated = { ...cached, ...campos };
+  const userCached = sessaoAtual();
+  if (userCached) {
+    const updated = { ...userCached, ...campos };
     localStorage.setItem("modo_profile_cache", JSON.stringify(updated));
     dispatchAuthEvent("USER_UPDATED");
   }

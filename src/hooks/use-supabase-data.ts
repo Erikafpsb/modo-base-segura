@@ -1,9 +1,10 @@
-// Hooks para buscar e mutacionar dados do Supabase
+// Hooks para buscar e mutacionar dados do Supabase (com suporte ao usuário demo local)
 // Usando TanStack Query (@tanstack/react-query)
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { sessaoAtual } from "@/lib/supabase-auth";
+import { mockStorage } from "@/lib/mock-storage";
 
 // ---------------------------------------------------------------------------
 // PERFIL
@@ -14,6 +15,9 @@ export function usePerfil() {
     queryKey: ["perfil", userId],
     enabled: !!userId,
     queryFn: async () => {
+      if (userId === "mock-user-001") {
+        return mockStorage.getPerfil() as any;
+      }
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
@@ -44,6 +48,9 @@ export function useModos() {
     queryKey: ["modos", userId],
     enabled: !!userId,
     queryFn: async () => {
+      if (userId === "mock-user-001") {
+        return mockStorage.getModos();
+      }
       const { data, error } = await supabase
         .from("modos")
         .select("*")
@@ -59,6 +66,9 @@ export function useCreateModo() {
   const userId = sessaoAtual()?.id;
   return useMutation({
     mutationFn: async (input: { nome: string; cor: string; icone?: string }) => {
+      if (userId === "mock-user-001") {
+        return mockStorage.createModo(input);
+      }
       const { data, error } = await supabase
         .from("modos")
         .insert({ ...input, user_id: userId, icone: input.icone ?? "star" })
@@ -75,6 +85,10 @@ export function useUpdateModo() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...fields }: Partial<ModoRow> & { id: string }) => {
+      if (sessaoAtual()?.id === "mock-user-001") {
+        mockStorage.updateModo(id, fields);
+        return;
+      }
       const { error } = await supabase
         .from("modos")
         .update({ ...fields, updated_at: new Date().toISOString() })
@@ -89,6 +103,10 @@ export function useDeleteModo() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
+      if (sessaoAtual()?.id === "mock-user-001") {
+        mockStorage.deleteModo(id);
+        return;
+      }
       const { error } = await supabase.from("modos").delete().eq("id", id);
       if (error) throw error;
     },
@@ -122,6 +140,9 @@ export function useTarefas() {
     queryKey: ["tarefas", userId],
     enabled: !!userId,
     queryFn: async () => {
+      if (userId === "mock-user-001") {
+        return mockStorage.getTarefas();
+      }
       const { data, error } = await supabase
         .from("tarefas")
         .select("*")
@@ -144,6 +165,9 @@ export function useCreateTarefa() {
       descricao?: string | null;
       status?: string;
     }) => {
+      if (userId === "mock-user-001") {
+        return mockStorage.createTarefa(input);
+      }
       const { data, error } = await supabase
         .from("tarefas")
         .insert({
@@ -168,6 +192,10 @@ export function useUpdateTarefa() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...fields }: Partial<TarefaRow> & { id: string }) => {
+      if (sessaoAtual()?.id === "mock-user-001") {
+        mockStorage.updateTarefa(id, fields);
+        return;
+      }
       const { error } = await supabase
         .from("tarefas")
         .update({ ...fields, updated_at: new Date().toISOString() })
@@ -182,6 +210,10 @@ export function useDeleteTarefa() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
+      if (sessaoAtual()?.id === "mock-user-001") {
+        mockStorage.deleteTarefa(id);
+        return;
+      }
       const { error } = await supabase.from("tarefas").delete().eq("id", id);
       if (error) throw error;
     },
@@ -209,6 +241,9 @@ export function useHabitos() {
     queryKey: ["habitos", userId],
     enabled: !!userId,
     queryFn: async () => {
+      if (userId === "mock-user-001") {
+        return mockStorage.getHabitos();
+      }
       const { data, error } = await supabase
         .from("habitos")
         .select("*")
@@ -224,6 +259,9 @@ export function useCreateHabito() {
   const userId = sessaoAtual()?.id;
   return useMutation({
     mutationFn: async (input: { nome: string; cor?: string; icone?: string }) => {
+      if (userId === "mock-user-001") {
+        return mockStorage.createHabito(input);
+      }
       const { data, error } = await supabase
         .from("habitos")
         .insert({
@@ -247,6 +285,10 @@ export function useUpdateHabito() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...fields }: Partial<HabitoRow> & { id: string }) => {
+      if (sessaoAtual()?.id === "mock-user-001") {
+        mockStorage.updateHabito(id, fields);
+        return;
+      }
       const { error } = await supabase
         .from("habitos")
         .update({ ...fields, updated_at: new Date().toISOString() })
@@ -261,6 +303,10 @@ export function useDeleteHabito() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
+      if (sessaoAtual()?.id === "mock-user-001") {
+        mockStorage.deleteHabito(id);
+        return;
+      }
       const { error } = await supabase.from("habitos").delete().eq("id", id);
       if (error) throw error;
     },
@@ -287,6 +333,9 @@ export function useMetas() {
     queryKey: ["metas", userId],
     enabled: !!userId,
     queryFn: async () => {
+      if (userId === "mock-user-001") {
+        return mockStorage.getMetas();
+      }
       const { data, error } = await supabase
         .from("metas")
         .select("*")
@@ -307,6 +356,9 @@ export function useCreateMeta() {
       progresso?: number;
       descricao?: string | null;
     }) => {
+      if (userId === "mock-user-001") {
+        return mockStorage.createMeta(input);
+      }
       const { data, error } = await supabase
         .from("metas")
         .insert({
@@ -329,6 +381,10 @@ export function useUpdateMeta() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...fields }: Partial<MetaRow> & { id: string }) => {
+      if (sessaoAtual()?.id === "mock-user-001") {
+        mockStorage.updateMeta(id, fields);
+        return;
+      }
       const { error } = await supabase
         .from("metas")
         .update({ ...fields, updated_at: new Date().toISOString() })
@@ -343,6 +399,10 @@ export function useDeleteMeta() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
+      if (sessaoAtual()?.id === "mock-user-001") {
+        mockStorage.deleteMeta(id);
+        return;
+      }
       const { error } = await supabase.from("metas").delete().eq("id", id);
       if (error) throw error;
     },
@@ -367,6 +427,9 @@ export function useSessoesFoco() {
     queryKey: ["sessoes_foco", userId],
     enabled: !!userId,
     queryFn: async () => {
+      if (userId === "mock-user-001") {
+        return mockStorage.getSessoesFoco();
+      }
       const { data, error } = await supabase
         .from("sessoes_foco")
         .select("*")
@@ -382,6 +445,9 @@ export function useCreateSessaoFoco() {
   const userId = sessaoAtual()?.id;
   return useMutation({
     mutationFn: async (input: { duracao_min: number; tarefa_id?: string | null }) => {
+      if (userId === "mock-user-001") {
+        return mockStorage.createSessaoFoco(input);
+      }
       const { data, error } = await supabase
         .from("sessoes_foco")
         .insert({
